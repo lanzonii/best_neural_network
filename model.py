@@ -101,16 +101,42 @@ class ModelTraining:
 
                 accuracies.append(accuracy)
                 
-                if TStudent(val_accuracy, best_model['history']['val_accuracy']).refuse():
+                print('val_accuracy: ', val_accuracy)
+                print('best_model: ', best_model['history']['val_accuracy'])
+                
+                if len(set(val_accuracy)) <= 1 and len(set(best_model['history']['val_accuracy'])) <= 1:
+                    break
+                elif size == 1:
                     best_model['history'] = history.history
                     best_model['model'] = model
                     best_model['untrained'] = untrained_model
-                    neurons[density-1] = Dense(size, activation=activation, kernel_initializer=GlorotUniform(seed=42))
+                    layer = Dense(size, activation=activation, kernel_initializer=GlorotUniform(seed=42))
                     
+                    if len(neurons) < density:
+                        neurons.append(layer)
+                    else:
+                        neurons[density-1] = layer
+                    
+                    size += 1 
+                elif TStudent(val_accuracy, best_model['history']['val_accuracy']).refuse():
+                    best_model['history'] = history.history
+                    best_model['model'] = model
+                    best_model['untrained'] = untrained_model
+                    layer = Dense(size, activation=activation, kernel_initializer=GlorotUniform(seed=42))
+                    
+                    if len(neurons) < density:
+                        neurons.append(layer)   # primeira vez, adiciona
+                    else:
+                        neurons[density-1] = layer        
+            
                     size += 1
                 else:
                     break
             
+            if density == 1:
+                best_model_density = best_model
+                
+                density+=1
             if TStudent(best_model['history']['val_accuracy'], best_model_density['history']['val_accuracy']).refuse():
                 best_model_density = best_model
                 
