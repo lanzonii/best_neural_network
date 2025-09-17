@@ -1,5 +1,5 @@
 import tensorflow as tf 
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, clone_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.initializers import GlorotUniform
 from tensorflow.keras.callbacks import EarlyStopping
@@ -15,37 +15,54 @@ class ModelTraining:
     def __init__(self, x, y):
         self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(x, y, test_size = 0.2, random_state = 42)
     
-    def best_activation(self, model, neuron_amount):
-        original_model = model
+    def best_activation(self, model: Sequential, neuron_amount, neurons):
+        if neurons > 0:
+            original_model = clone_model(model)
         activation_accuracies = {}
-        
+        activation_models = {}
+
         for activation in ['sigmoid', 'softplus', 'relu', 'tanh']:
-            model = original_model
+            if neurons > 0:
+                model = clone_model(original_model)
+            else:
+                model = Sequential()
             
             model.add(Dense(neuron_amount, activation=activation, kernel_initializer=GlorotUniform(seed=42)))
             
             model.add(Dense(1, activation='sigmoid', kernel_initializer=GlorotUniform(seed=42)))
             
+            untrained = model
+
             model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
             
             history = model.fit(self.x_train, self.y_train, epochs=self.epochs, validation_data=(self.x_test, self.y_test), verbose=0)
 
             loss, accuracy = model.evaluate(self.x_test, self.y_test, verbose=0)
+            
+            val_accuracy = history.history['val_accuracy']
+
+            activation_models[activation] = {'history': history.history, 'accuracy': accuracy, 'model': model, 'val_accuracy': val_accuracy, 'untrained': untrained}
+            activation_accuracies[activation] = accuracy
+
+            print('     ', activation)
+            print('          accuracy: ', accuracy)
 
             activation_accuracies[activation] = accuracy
             
         best_activation = max(activation_accuracies, key=activation_accuracies.get)
         
-        return best_activation
+        print('\n     best_activation: ', best_activation)
+
+        return activation_models[best_activation], best_activation
 
     def best_optimizer(self, model):
-        original_model = model
+        original_model = clone_model(model)
         optimizer_models = {}
         optimizer_accuracies = {}
         
         for optimizer in ['adam', 'sgd', 'nadam', 'adamax', 'adagrad', 'rmsprop']:
             model = original_model
-            
+
             model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
             
             history = model.fit(self.x_train, self.y_train, epochs=self.epochs, validation_data=(self.x_test, self.y_test), verbose=0)
@@ -83,7 +100,7 @@ class ModelTraining:
             same = 0
             # Loop para adicionar neurônios na mesma camada
             while True:
-                
+                print(f'\n{density} camada(s), {size} neurônio(s):')
                 
                 model = Sequential()
 
@@ -91,31 +108,13 @@ class ModelTraining:
                     for neuron in neurons:
                         model.add(neuron)
                 
-                activation = self.best_activation(model, size)
-                model.add(Dense(size, activation=activation, kernel_initializer=GlorotUniform(seed=42)))
-                
-                model.add(Dense(1, activation='sigmoid', kernel_initializer=GlorotUniform(seed=42)))
-                
-                untrained_model = model
-                
-                model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+                model, activation = self.best_activation(model, size, len(neurons))
 
-                history = model.fit(self.x_train, self.y_train, epochs=self.epochs, validation_data=(self.x_test, self.y_test), verbose=0)
-
-                loss, accuracy = model.evaluate(self.x_test, self.y_test, verbose=0)
-
-                val_accuracy = history.history['val_accuracy']
-
-                accuracies.append(accuracy)
-                print(loops)
-                print('    accuracy: ', accuracy)
+                accuracies.append(model['accuracy'])
                 
                 if same < 3:
-                    if accuracy > best_model['accuracy']:
-                        best_model['history'] = history.history
-                        best_model['model'] = model
-                        best_model['accuracy'] = accuracy
-                        best_model['untrained'] = untrained_model
+                    if model['accuracy'] > best_model['accuracy']:
+                        best_model = model
                         layer = Dense(size, activation=activation, kernel_initializer=GlorotUniform(seed=42))
                         
                         if len(neurons) < density:
