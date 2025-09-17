@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.initializers import GlorotUniform
+from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 from t_student import TStudent
@@ -58,7 +59,7 @@ class ModelTraining:
             
         best_optimizer = max(optimizer_accuracies, key=optimizer_accuracies.get)
         
-        return best_optimizer, optimizer_models[best_optimizer]
+        return optimizer_models[best_optimizer]
                     
 
     def train(self, epochs):
@@ -67,16 +68,22 @@ class ModelTraining:
         accuracies = []
         neurons = []
         density = 1
-        best_model_density = {'history': {'val_accuracy': [0, 0, 0]}}
+        best_model_density = {'accuracy': 0}
+        big_same = 0
+        
+        loops = 1
         
         # Loop para adicionar camadas
         while True:
             
-            best_model = {'history': {'val_accuracy': [0, 0, 0]}}
+            best_model = {'accuracy': 0}
             
             size = 1
+            
+            same = 0
             # Loop para adicionar neurônios na mesma camada
             while True:
+                
                 
                 model = Sequential()
 
@@ -100,52 +107,43 @@ class ModelTraining:
                 val_accuracy = history.history['val_accuracy']
 
                 accuracies.append(accuracy)
+                print(loops)
+                print('    accuracy: ', accuracy)
                 
-                print('val_accuracy: ', val_accuracy)
-                print('best_model: ', best_model['history']['val_accuracy'])
+                if same < 3:
+                    if accuracy > best_model['accuracy']:
+                        best_model['history'] = history.history
+                        best_model['model'] = model
+                        best_model['accuracy'] = accuracy
+                        best_model['untrained'] = untrained_model
+                        layer = Dense(size, activation=activation, kernel_initializer=GlorotUniform(seed=42))
+                        
+                        if len(neurons) < density:
+                            neurons.append(layer)   # primeira vez, adiciona
+                        else:
+                            neurons[density-1] = layer        
                 
-                if len(set(val_accuracy)) <= 1 and len(set(best_model['history']['val_accuracy'])) <= 1:
-                    break
-                elif size == 1:
-                    best_model['history'] = history.history
-                    best_model['model'] = model
-                    best_model['untrained'] = untrained_model
-                    layer = Dense(size, activation=activation, kernel_initializer=GlorotUniform(seed=42))
-                    
-                    if len(neurons) < density:
-                        neurons.append(layer)
+                        size += 1
+                        same = 0
                     else:
-                        neurons[density-1] = layer
-                    
-                    size += 1 
-                elif TStudent(val_accuracy, best_model['history']['val_accuracy']).refuse():
-                    best_model['history'] = history.history
-                    best_model['model'] = model
-                    best_model['untrained'] = untrained_model
-                    layer = Dense(size, activation=activation, kernel_initializer=GlorotUniform(seed=42))
-                    
-                    if len(neurons) < density:
-                        neurons.append(layer)   # primeira vez, adiciona
-                    else:
-                        neurons[density-1] = layer        
-            
-                    size += 1
+                        same+=1
                 else:
                     break
+                
+                loops += 1
             
-            if density == 1:
-                best_model_density = best_model
-                
-                density+=1
-            if TStudent(best_model['history']['val_accuracy'], best_model_density['history']['val_accuracy']).refuse():
-                best_model_density = best_model
-                
-                density+=1
+            if big_same < 3:
+                if best_model['accuracy'] > best_model_density['accuracy']:
+                    best_model_density = best_model
+                    
+                    density+=1
+                    big_same = 0
+                else:
+                    big_same += 1
             else:
                 break
-        
         px.line(y=accuracies).show()
         
-        self.best_model = self.best_optimizer(best_model_density['untrained'])[['history', 'model']]
+        self.best_model = self.best_optimizer(best_model_density['untrained'])
         
         return self
