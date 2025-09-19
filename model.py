@@ -12,17 +12,20 @@ import random
 
 class ModelTraining:
     
+    early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+
     def __init__(self, x, y):
         self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(x, y, test_size = 0.2, random_state = 42)
     
-    def best_activation(self, model: Sequential, neuron_amount, neurons):
-        if neurons > 0:
-            original_model = clone_model(model)
+    def __init__(self, x_train, x_test, y_train, y_test):
+        self.x_train, self.x_test, self.y_train, self.y_test = x_train, x_test, y_train, y_test
+    
+    def best_activation(self, original_model: Sequential, neuron_amount: int, layers: int):
         activation_accuracies = {}
         activation_models = {}
 
         for activation in ['sigmoid', 'softplus', 'relu', 'tanh']:
-            if neurons > 0:
+            if layers > 1:
                 model = clone_model(original_model)
             else:
                 model = Sequential()
@@ -31,7 +34,7 @@ class ModelTraining:
             
             model.add(Dense(1, activation='sigmoid', kernel_initializer=GlorotUniform(seed=42)))
             
-            untrained = model
+            untrained = clone_model(model)
 
             model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
             
@@ -61,7 +64,7 @@ class ModelTraining:
         optimizer_accuracies = {}
         
         for optimizer in ['adam', 'sgd', 'nadam', 'adamax', 'adagrad', 'rmsprop']:
-            model = original_model
+            model = clone_model(original_model)
 
             model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
             
@@ -108,7 +111,7 @@ class ModelTraining:
                     for neuron in neurons:
                         model.add(neuron)
                 
-                model, activation = self.best_activation(model, size, len(neurons))
+                model, activation = self.best_activation(model, size, density)
 
                 accuracies.append(model['accuracy'])
                 
@@ -125,6 +128,7 @@ class ModelTraining:
                         size += 1
                         same = 0
                     else:
+                        size += 1
                         same+=1
                 else:
                     break
@@ -138,6 +142,7 @@ class ModelTraining:
                     density+=1
                     big_same = 0
                 else:
+                    density += 1
                     big_same += 1
             else:
                 break

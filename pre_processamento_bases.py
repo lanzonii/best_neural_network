@@ -125,7 +125,10 @@ class PreProcessamentoBase:
             le = LabelEncoder()
             X[col] = le.fit_transform(X[col])
             encoders[col] = le
- 
+
+        le = LabelEncoder()
+        Y = le.fit_transform(Y)
+
         # Normalizar
         scaler = StandardScaler()
         X = scaler.fit_transform(X)
