@@ -36,7 +36,7 @@ class ModelTraining:
             
             untrained = clone_model(model)
 
-            model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+            model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy', 'binary_accuracy'])
             
             history = model.fit(self.x_train, self.y_train, epochs=self.epochs, validation_data=(self.x_test, self.y_test), verbose=0)
 
@@ -66,7 +66,7 @@ class ModelTraining:
         for optimizer in ['adam', 'sgd', 'nadam', 'adamax', 'adagrad', 'rmsprop']:
             model = clone_model(original_model)
 
-            model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+            model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy', 'binary_accuracy'])
             
             history = model.fit(self.x_train, self.y_train, epochs=self.epochs, validation_data=(self.x_test, self.y_test), verbose=0)
 
